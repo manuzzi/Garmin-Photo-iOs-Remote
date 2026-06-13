@@ -58,6 +58,51 @@ Apple Watch".
 
 ---
 
+## 2-bis. Verifiche tecniche (aggiornamento 2026-06-13)
+
+Tre punti chiave verificati su documentazione Garmin/Apple e forum sviluppatori.
+
+### A) L'orologio può "avviare" l'app companion iOS? → **NO (limite forte di iOS)**
+- Il metodo `openApplication` del Mobile SDK serve nella direzione
+  **iOS → orologio** (l'app companion apre/verifica l'app Connect IQ sul
+  dispositivo). **Non** esiste l'inverso.
+- iOS *può* risvegliare in **background** un'app collegata via Bluetooth quando
+  arrivano dati, **ma solo se l'app è già in esecuzione** (almeno in
+  background): l'app sull'orologio **non avvia** l'app companion iOS se questa
+  non è già attiva. Riferimento: discussioni ufficiali Connect IQ Forums.
+- **Conseguenza UX decisiva:** non si può replicare il flusso Apple Watch
+  "apro tutto dal polso a freddo". Il flusso reale è: **l'utente apre prima
+  l'app companion iOS** (in foreground, fotocamera attiva) → **poi** usa
+  l'orologio come telecomando. Al più, con la modalità background
+  `bluetooth-central` + CoreBluetooth, l'app resta viva in background, ma una
+  cattura video AVFoundation completa **non** è consentita da background/schermo
+  bloccato.
+
+### B) Connettività usata tra Garmin e iOS → **BLE, mediato da Garmin Connect**
+- Il canale orologio ⇄ iPhone per le app companion è **Bluetooth Low Energy**,
+  **relayato dall'app Garmin Connect Mobile (GCM)**, che deve essere installata
+  e attiva. Il Companion SDK iOS si appoggia alla connessione BLE di GCM.
+- Esiste anche `Toybox.BluetoothLowEnergy` (CIQ 3.1+) con cui l'orologio fa da
+  **BLE central** verso periferiche BLE generiche — utile per sensori/hardware,
+  **non** è il percorso standard per parlare con un'app iPhone (per quello si usa
+  il Mobile SDK + GCM).
+- **Niente Wi‑Fi** per questo scambio (il Wi‑Fi di alcuni Garmin serve solo alla
+  sincronizzazione con i server Garmin). ANT/ANT+ è per i sensori, non per la
+  messaggistica con l'app companion.
+
+### C) Risoluzione reale del display Garmin Descent Mk3i → **AMOLED touch**
+- **Mk3i 43 mm:** AMOLED **1,2"**, **390 × 390 px**, touchscreen.
+- **Mk3i 51 mm:** AMOLED **1,4"**, **454 × 454 px**, touchscreen.
+- Nota: il display è ampio e a buona risoluzione → **non è il collo di
+  bottiglia**. Il limite del "mirino live" resta esclusivamente la **banda BLE**
+  (§4), non lo schermo.
+
+> **Impatto sul progetto:** confermata l'architettura a due app (§3), ma con un
+> vincolo di flusso obbligato: **prima si apre l'app iOS, poi si comanda dal
+> polso**. Il punto (A) va comunicato chiaramente nell'onboarding utente.
+
+---
+
 ## 3. Architettura consigliata (fattibile)
 
 Sistema a due componenti che comunicano via Connect IQ Mobile SDK:
@@ -115,8 +160,8 @@ La domanda chiave è se si possa mostrare un'anteprima video sull'orologio.
 - Conseguenza realistica: si possono inviare **thumbnail JPEG fortemente
   compresse** (es. 80×80–120×120 px) a **~0,5–2 fps**. Utile come "vedo grosso
   modo cosa inquadro", **non** un mirino fluido.
-- Il display del Descent Mk3i (AMOLED, ottimizzato per consumo, refresh non
-  video) accentua il limite.
+- Il display **non** è il limite: è AMOLED touch 390×390 (43 mm) / 454×454
+  (51 mm), più che sufficiente. Il collo di bottiglia è **solo la banda BLE**.
 
 **Raccomandazione di prodotto:** progettare la v1 come **telecomando di scatto**
 (senza mirino) — robusto e davvero utile. Trattare il mirino a basse fps come
